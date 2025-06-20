@@ -1,68 +1,58 @@
-
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html><html>
 <head>
-  <title>Secure Wallet (PIN + Full Features)</title>
+  <title>Secure Wallet (PIN + BNB + QR)</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.1/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; background: #f8f8f8; }
     .card { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     input, button { padding: 10px; margin-top: 10px; width: 100%; }
     .info, .address, .history { word-wrap: break-word; font-size: 14px; }
     .menu { float: right; font-size: 24px; cursor: pointer; }
+    #qrCanvas { margin-top: 10px; }
   </style>
 </head>
-<body>
-
-<div class="card" id="setupCard">
+<body><div class="card" id="setupCard">
   <h2>Import Wallet</h2>
   <input id="importKey" placeholder="Paste Private Key">
   <input id="pinSet" placeholder="Set 8-digit PIN">
   <button onclick="createEncryptedWallet()">Set Wallet</button>
   <div class="info" id="setupStatus"></div>
-</div>
-
-<div class="card" id="loginCard" style="display:none;">
+</div><div class="card" id="loginCard" style="display:none;">
   <h2>Login with PIN</h2>
   <input id="pinLogin" placeholder="Enter 8-digit PIN">
   <button onclick="unlockWallet()">Unlock</button>
   <div class="info" id="loginStatus"></div>
   <button onclick="resetWallet()" style="margin-top:20px; background:#eee;">🔁 Reset Wallet</button>
-</div>
-
-<div class="card" id="walletCard" style="display:none;">
+</div><div class="card" id="walletCard" style="display:none;">
   <div>
     <span class="menu" onclick="toggleMenu()">☰</span>
     <h2>My Wallet</h2>
   </div>
   <div class="info" id="walletInfo"></div>
+  <canvas id="qrCanvas"></canvas>
   <div class="info" id="bnbBalance"></div>
-  <div class="info" id="usdtBalance"></div>
-
-  <h3>Send USDT</h3>
+  <div class="info" id="usdtBalance"></div>  <h3>Send BNB</h3>
+  <input id="bnbTo" placeholder="Recipient Address">
+  <input id="bnbAmount" placeholder="Amount (BNB)">
+  <button onclick="sendBNB()">Send BNB</button>
+  <div class="info" id="bnbSendStatus"></div>  <h3>Send USDT</h3>
   <input id="toAddress" placeholder="Recipient Address">
   <input id="amount" placeholder="Amount (USDT)">
   <button onclick="sendUSDT()">Send</button>
-  <div class="info" id="sendStatus"></div>
-
-  <div id="history" style="display:none;">
+  <div class="info" id="sendStatus"></div>  <div id="history" style="display:none;">
     <h3>Transaction History</h3>
     <div class="history" id="txHistory"></div>
-  </div>
-
-  <h3>Change PIN</h3>
+  </div>  <h3>Change PIN</h3>
   <input id="newPIN" placeholder="New 8-digit PIN">
   <button onclick="changePIN()">Change PIN</button>
   <div class="info" id="pinStatus"></div>
-</div>
-
-<script>
+</div><script>
 const usdtAddress = "0x55d398326f99059fF775485246999027B3197955";
 const bscRpc = "https://bsc-dataseed1.binance.org";
 const bscscanApiKey = "9Z8WFPTSJ6V3CKJJGKMVKTPFIAJRD8P196";
-
 let provider = new ethers.JsonRpcProvider(bscRpc);
 let wallet;
 
@@ -98,8 +88,9 @@ async function unlockWallet() {
   if (!pk || pk.length !== 66 || !pk.startsWith("0x")) return document.getElementById("loginStatus").innerText = "❌ ভুল PIN!";
 
   wallet = new ethers.Wallet(pk, provider);
-  document.getElementById("walletInfo").innerText = `✅ Address: ${wallet.address}
-🔐 Private Key: ${pk}`;
+  document.getElementById("walletInfo").innerText = `✅ Address: ${wallet.address}`;
+  QRCode.toCanvas(document.getElementById("qrCanvas"), wallet.address);
+
   document.getElementById("loginCard").style.display = "none";
   document.getElementById("walletCard").style.display = "block";
   getBalances();
@@ -113,6 +104,18 @@ async function getBalances() {
   const usdtContract = new ethers.Contract(usdtAddress, ["function balanceOf(address) view returns (uint)",], provider);
   const usdt = await usdtContract.balanceOf(wallet.address);
   document.getElementById("usdtBalance").innerText = `USDT (BEP20): ${ethers.formatUnits(usdt, 18)}`;
+}
+
+async function sendBNB() {
+  const to = document.getElementById("bnbTo").value.trim();
+  const amount = document.getElementById("bnbAmount").value.trim();
+  if (!ethers.isAddress(to)) return alert("ভ্যালিড অ্যাড্রেস দিন");
+  try {
+    const tx = await wallet.sendTransaction({ to, value: ethers.parseEther(amount) });
+    document.getElementById("bnbSendStatus").innerText = "⏳ TX Sent: " + tx.hash;
+  } catch (err) {
+    document.getElementById("bnbSendStatus").innerText = "❌ Error: " + err.message;
+  }
 }
 
 async function sendUSDT() {
@@ -165,7 +168,5 @@ window.onload = () => {
     document.getElementById("loginCard").style.display = "block";
   }
 };
-</script>
-
-</body>
+</script></body>
 </html>
